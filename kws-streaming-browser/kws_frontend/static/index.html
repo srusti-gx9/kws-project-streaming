@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Keyword Spotter — Live Mic</title>
+<style>
+  :root{
+    --bg: #0b0d10;
+    --panel: #12161b;
+    --line: #232a31;
+    --text: #e6edf3;
+    --dim: #7d8a97;
+    --accent: #4fd1c5;
+    --accent-dim: #1f4b47;
+    --danger: #ff6b6b;
+    --mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  *{ box-sizing: border-box; }
+  body{
+    margin:0;
+    background: radial-gradient(1200px 600px at 50% -10%, #14202080, transparent), var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 24px;
+  }
+  .card{
+    width:100%;
+    max-width: 640px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 32px;
+  }
+  h1{
+    font-size: 20px;
+    margin: 0 0 4px 0;
+    letter-spacing: -0.01em;
+  }
+  .sub{
+    color: var(--dim);
+    font-size: 13px;
+    margin-bottom: 28px;
+    font-family: var(--mono);
+  }
+  .stage{
+    display:flex;
+    align-items:center;
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+  .mic-btn{
+    position: relative;
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    border: 2px solid var(--line);
+    background: #171d23;
+    cursor: pointer;
+    flex-shrink: 0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition: border-color .2s, background .2s;
+  }
+  .mic-btn.live{
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+  .mic-btn svg{ width: 30px; height: 30px; fill: var(--text); }
+  .pulse{
+    position:absolute;
+    inset:-2px;
+    border-radius:50%;
+    border: 2px solid var(--accent);
+    opacity: 0;
+  }
+  .mic-btn.live .pulse{ animation: pulse 1.6s ease-out infinite; }
+  @keyframes pulse{
+    0%{ transform: scale(1); opacity: .6; }
+    100%{ transform: scale(1.45); opacity: 0; }
+  }
+  .status-block{ flex:1; min-width:0; }
+  .status-line{
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .status-line.err{ color: var(--danger); }
+  .level-track{
+    height: 6px;
+    background: #1c232a;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .level-fill{
+    height:100%;
+    width:0%;
+    background: var(--accent);
+    transition: width .06s linear;
+  }
+  .hint{
+    font-size: 12px;
+    color: var(--dim);
+    margin-top: 8px;
+    font-family: var(--mono);
+  }
+  .log{
+    border-top: 1px solid var(--line);
+    padding-top: 16px;
+    max-height: 280px;
+    overflow-y: auto;
+    display:flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .log-empty{
+    color: var(--dim);
+    font-size: 13px;
+    font-family: var(--mono);
+    padding: 8px 0;
+  }
+  .detection{
+    background: #10181a;
+    border: 1px solid var(--accent-dim);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 13px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap: 12px;
+  }
+  .detection .kw{
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: .02em;
+  }
+  .detection .time{
+    color: var(--dim);
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Keyword Spotter</h1>
+    <div class="sub">live mic → 16kHz PCM16 → sherpa-onnx KWS</div>
+
+    <div class="stage">
+      <button class="mic-btn" id="micBtn" aria-label="Toggle microphone">
+        <span class="pulse"></span>
+        <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
+      </button>
+      <div class="status-block">
+        <div class="status-line" id="statusLine">Click the mic to start listening</div>
+        <div class="level-track"><div class="level-fill" id="levelFill"></div></div>
+        <div class="hint" id="hint">Say one of the keywords configured in keywords_raw.txt</div>
+      </div>
+    </div>
+
+    <div class="log" id="log">
+      <div class="log-empty" id="logEmpty">No detections yet.</div>
+    </div>
+  </div>
+
+<script>
+const micBtn = document.getElementById('micBtn');
+const statusLine = document.getElementById('statusLine');
+const levelFill = document.getElementById('levelFill');
+const logEl = document.getElementById('log');
+const logEmpty = document.getElementById('logEmpty');
+
+let audioCtx = null;
+let sourceNode = null;
+let processorNode = null;
+let mediaStream = null;
+let ws = null;
+let listening = false;
+
+const TARGET_SAMPLE_RATE = 16000;
+
+function setStatus(text, isError=false){
+  statusLine.textContent = text;
+  statusLine.classList.toggle('err', !!isError);
+}
+
+function addDetection(detection){
+  logEmpty.style.display = 'none';
+  const row = document.createElement('div');
+  row.className = 'detection';
+  const kw = (detection && detection.keyword) ? detection.keyword : 'UNKNOWN';
+  const now = new Date().toLocaleTimeString();
+  row.innerHTML = `<span class="kw">${kw}</span><span class="time">${now}</span>`;
+  logEl.prepend(row);
+}
+
+// Linear-interpolation resampler: works for any source sample rate -> 16kHz.
+function downsampleTo16k(float32Input, inputSampleRate){
+  if (inputSampleRate === TARGET_SAMPLE_RATE){
+    return float32Input;
+  }
+  const ratio = inputSampleRate / TARGET_SAMPLE_RATE;
+  const outLength = Math.floor(float32Input.length / ratio);
+  const out = new Float32Array(outLength);
+  for (let i = 0; i < outLength; i++){
+    const srcPos = i * ratio;
+    const srcIndex = Math.floor(srcPos);
+    const frac = srcPos - srcIndex;
+    const s0 = float32Input[srcIndex] || 0;
+    const s1 = float32Input[srcIndex + 1] || s0;
+    out[i] = s0 + (s1 - s0) * frac;
+  }
+  return out;
+}
+
+function floatTo16BitPCM(float32Array){
+  const out = new Int16Array(float32Array.length);
+  for (let i = 0; i < float32Array.length; i++){
+    let s = Math.max(-1, Math.min(1, float32Array[i]));
+    out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+  }
+  return out;
+}
+
+function wsUrl(){
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${proto}//${location.host}/ws`;
+}
+
+async function startListening(){
+  try{
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: {
+      echoCancellation: true, noiseSuppression: true, autoGainControl: true
+    }});
+  } catch (err){
+    setStatus('Microphone access denied or unavailable.', true);
+    return;
+  }
+
+  ws = new WebSocket(wsUrl());
+  ws.binaryType = 'arraybuffer';
+
+  ws.onopen = () => setStatus('Connected. Listening…');
+  ws.onclose = () => { if (listening) setStatus('Disconnected from server.', true); stopListening(); };
+  ws.onerror = () => setStatus('WebSocket error — is server.py running?', true);
+  ws.onmessage = (event) => {
+    try{
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'detection'){
+        addDetection(msg.data);
+        setStatus(`Detected: ${msg.data.keyword || 'keyword'}`);
+      } else if (msg.type === 'error'){
+        setStatus(msg.message, true);
+      }
+    } catch(e){ /* ignore malformed message */ }
+  };
+
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  sourceNode = audioCtx.createMediaStreamSource(mediaStream);
+
+  const bufferSize = 4096;
+  processorNode = audioCtx.createScriptProcessor(bufferSize, 1, 1);
+
+  processorNode.onaudioprocess = (event) => {
+    const input = event.inputBuffer.getChannelData(0);
+
+    // simple level meter
+    let sum = 0;
+    for (let i = 0; i < input.length; i++) sum += input[i] * input[i];
+    const rms = Math.sqrt(sum / input.length);
+    levelFill.style.width = `${Math.min(100, rms * 400)}%`;
+
+    if (ws && ws.readyState === WebSocket.OPEN){
+      const down = downsampleTo16k(input, audioCtx.sampleRate);
+      const pcm16 = floatTo16BitPCM(down);
+      ws.send(pcm16.buffer);
+    }
+  };
+
+  sourceNode.connect(processorNode);
+  processorNode.connect(audioCtx.destination);
+
+  listening = true;
+  micBtn.classList.add('live');
+}
+
+function stopListening(){
+  listening = false;
+  micBtn.classList.remove('live');
+  levelFill.style.width = '0%';
+
+  if (processorNode){ processorNode.disconnect(); processorNode.onaudioprocess = null; processorNode = null; }
+  if (sourceNode){ sourceNode.disconnect(); sourceNode = null; }
+  if (audioCtx){ audioCtx.close(); audioCtx = null; }
+  if (mediaStream){ mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+  if (ws){ try{ ws.close(); } catch(e){} ws = null; }
+
+  setStatus('Stopped. Click the mic to start listening');
+}
+
+micBtn.addEventListener('click', () => {
+  if (listening) stopListening();
+  else startListening();
+});
+</script>
+</body>
+</html>

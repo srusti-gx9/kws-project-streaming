@@ -1,0 +1,33 @@
+# =============================================================================
+# Python dependencies (installable via pip)
+# =============================================================================
+
+Flask==3.0.3
+Flask-Sock==0.7.0
+simple-websocket>=1.0.0
+
+# =============================================================================
+# Non-Python requirements (reference only)
+# =============================================================================
+#
+# Install system dependencies:
+#
+# sudo apt update
+#
+# sudo apt install \
+#     build-essential \
+#     cmake \
+#     python3 \
+#     python3-pip \
+#     python3-venv \
+#     ffmpeg \
+#     libasound2-dev
+#
+# Required external model:
+#
+# sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20
+#
+# Download from:
+# https://github.com/k2-fsa/sherpa-onnx/releases
+#
+# Update the model paths in keyword_spotter.c after downloading.

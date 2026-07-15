@@ -1,0 +1,35 @@
+# Build
+build/
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Editors
+.vscode/
+.DS_Store
+
+# Personal audio files
+SRUSTI.wav
+anil.wav
+cloud_computing.wav
+cloud_computing1.wav
+likitha.wav
+neha.wav
+sakshi.wav
+sakshi1.wav
+srusti_sentence1.wav
+srusti_sentense.wav
+
+# Zip files
+kws_project_streaming.zip
+
+# Old project folder
+kws_project/
