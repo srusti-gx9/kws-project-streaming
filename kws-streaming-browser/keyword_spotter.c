@@ -99,6 +99,8 @@ static void on_sigint(int sig)
     g_stop = 1;
 }
 
+#define MODEL_DIR "./models/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20/"
+
 int32_t main(int argc, char *argv[]) {
   bool microphone_mode = false;
   bool mock_mode = false;
@@ -152,20 +154,20 @@ int32_t main(int argc, char *argv[]) {
   memset(&config, 0, sizeof(config));
 
   config.model_config.transducer.encoder =
-      "/home/ubuntu/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20/"
-      "encoder-epoch-13-avg-2-chunk-16-left-64.onnx";
+    MODEL_DIR
+    "encoder-epoch-13-avg-2-chunk-16-left-64.onnx";
 
   config.model_config.transducer.decoder =
-      "/home/ubuntu/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20/"
-      "decoder-epoch-13-avg-2-chunk-16-left-64.onnx";
+    MODEL_DIR
+    "decoder-epoch-13-avg-2-chunk-16-left-64.onnx";
 
   config.model_config.transducer.joiner =
-      "/home/ubuntu/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20/"
-      "joiner-epoch-13-avg-2-chunk-16-left-64.onnx";
+    MODEL_DIR
+    "joiner-epoch-13-avg-2-chunk-16-left-64.onnx";
 
   config.model_config.tokens =
-      "/home/ubuntu/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20/"
-      "tokens.txt";
+    MODEL_DIR
+    "tokens.txt";
 
   config.model_config.provider = "cpu";
   config.model_config.num_threads = 1;
@@ -175,8 +177,8 @@ int32_t main(int argc, char *argv[]) {
   //config.keywords_threshold = 0.1;
 
   config.keywords_file =
-      "/home/ubuntu/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20/"
-      "test_wavs/keywords.txt";
+    MODEL_DIR
+    "test_wavs/keywords.txt";
 
   const SherpaOnnxKeywordSpotter *kws =
       SherpaOnnxCreateKeywordSpotter(&config);
@@ -187,23 +189,8 @@ int32_t main(int argc, char *argv[]) {
 
   // Repository sample audio
   //const char *wav_filename =
-    //"/home/ubuntu/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20/"
-    //"test_wavs/en_0.wav";
-
-
-  // My recorded audio
-  //const char *wav_filename =
-    //"/home/ubuntu/kws_project/cloud_computing1.wav";
-
-/*
- // commenting Because it is used inside the microphonr_mode block
-  float tail_paddings[8000] = {0};
-  const SherpaOnnxWave *wave = SherpaOnnxReadWave(wav_filename);
-  if (wave == NULL) {
-    fprintf(stderr, "Failed to read %s\n", wav_filename);
-    exit(-1);
-  }
-*/
+  //"/home/ubuntu/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20/"
+  //"test_wavs/en_0.wav";
   const SherpaOnnxOnlineStream *stream = SherpaOnnxCreateKeywordStream(kws);
   if (!stream) {
    fprintf(stderr, "Failed to create stream\n");
@@ -424,31 +411,7 @@ else if (stdin_mode) {
     fprintf(stderr, "\nStdin closed. Stopping...\n");
 }
 
-/*
-// Old WAV-PROCESSING CODE (NEED TO REMOVE)
-  SherpaOnnxOnlineStreamAcceptWaveform(stream, wave->sample_rate,
-                                       wave->samples, wave->num_samples);
-
-  SherpaOnnxOnlineStreamAcceptWaveform(stream, wave->sample_rate,
-                                       tail_paddings,
-                                       sizeof(tail_paddings) / sizeof(float));
-
-  SherpaOnnxOnlineStreamInputFinished(stream);
-
-  while (SherpaOnnxIsKeywordStreamReady(kws, stream)) {
-    SherpaOnnxDecodeKeywordStream(kws, stream);
-    const SherpaOnnxKeywordResult *r =
-        SherpaOnnxGetKeywordResult(kws, stream);
-    if (r && r->json && strlen(r->keyword)) {
-      fprintf(stderr, "Detected keyword: %s\n", r->json);
-      SherpaOnnxResetKeywordStream(kws, stream);
-    }
-    SherpaOnnxDestroyKeywordResult(r);
-  }
-
- */
-  SherpaOnnxDestroyOnlineStream(stream);
-  //SherpaOnnxFreeWave(wave); //commenting this because wave functionis not using 
+  SherpaOnnxDestroyOnlineStream(stream); 
   SherpaOnnxDestroyKeywordSpotter(kws);
 
   return 0;

@@ -25,6 +25,18 @@
 #include <unistd.h>
 #include <stdatomic.h>
 
+/*---------------------------------------------------------
+ * Sherpa-ONNX Model Directory
+ *
+ * All model files are expected to be inside:
+ *
+ * models/
+ *   sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20/
+ *
+ * Using a relative path makes the application portable
+ * across different Linux systems.
+ *--------------------------------------------------------*/
+#define MODEL_DIR "models/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20/"
 static volatile sig_atomic_t g_stop = 0;
 static void on_sigint(int sig) { (void)sig; g_stop = 1; }
 
@@ -117,62 +129,41 @@ int main(int argc, char **argv) {
            cfg.device, cfg.sample_rate, cfg.channels, cfg.chunk_samples,
            1000.0 * cfg.chunk_samples / cfg.sample_rate, cfg.ring_chunks,
            cfg.use_mmap ? "MMAP(requested)" : "RW");
-/*
-    SherpaOnnxKeywordSpotterConfig config;
-memset(&config, 0, sizeof(config));
 
-config.model_config.transducer.encoder =
-    "/home/ubuntu/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20/"
-    "encoder-epoch-13-avg-2-chunk-16-left-64.onnx";
-
-const SherpaOnnxKeywordSpotter *kws =
-    SherpaOnnxCreateKeywordSpotter(&config);
-
-if (!kws) {
-    fprintf(stderr, "Failed to create keyword spotter\n");
-    return 1;
-}
-
-const SherpaOnnxOnlineStream *kws_stream =
-    SherpaOnnxCreateKeywordStream(kws);
-
-if (!kws_stream) {
-    fprintf(stderr, "Failed to create keyword stream\n");
-    SherpaOnnxDestroyKeywordSpotter(kws);
-    return 1;
-}
-
-*/
-    SherpaOnnxKeywordSpotterConfig config;
+/*---------------------------------------------------------
+ * Configure Sherpa-ONNX Keyword Spotter
+ *
+ * Model files are loaded from MODEL_DIR.
+ * Since MODEL_DIR is a relative path, anyone cloning the
+ * repository can build and run the project without
+ * modifying the source code.
+ *--------------------------------------------------------*/
+SherpaOnnxKeywordSpotterConfig config;
 
 memset(&config, 0, sizeof(config));
 
 config.model_config.transducer.encoder =
-    "/home/ubuntu/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20/"
-    "encoder-epoch-13-avg-2-chunk-16-left-64.onnx";
+    MODEL_DIR "encoder-epoch-13-avg-2-chunk-16-left-64.onnx";
 
 config.model_config.transducer.decoder =
-    "/home/ubuntu/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20/"
-    "decoder-epoch-13-avg-2-chunk-16-left-64.onnx";
+    MODEL_DIR "decoder-epoch-13-avg-2-chunk-16-left-64.onnx";
 
 config.model_config.transducer.joiner =
-    "/home/ubuntu/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20/"
-    "joiner-epoch-13-avg-2-chunk-16-left-64.onnx";
+    MODEL_DIR "joiner-epoch-13-avg-2-chunk-16-left-64.onnx";
 
 config.model_config.tokens =
-    "/home/ubuntu/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20/"
-    "tokens.txt";
+    MODEL_DIR "tokens.txt";
 
 config.model_config.provider = "cpu";
 config.model_config.num_threads = 1;
 config.model_config.debug = 1;
 
-//config.keywords_score = 1.0;
-//config.keywords_threshold = 0.1;
+/* Optional tuning parameters */
+// config.keywords_score = 1.0;
+// config.keywords_threshold = 0.1;
 
 config.keywords_file =
-    "/home/ubuntu/sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20/"
-    "test_wavs/keywords.txt";
+    MODEL_DIR "test_wavs/keywords.txt";
 
 const SherpaOnnxKeywordSpotter *kws =
     SherpaOnnxCreateKeywordSpotter(&config);
